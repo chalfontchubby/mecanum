@@ -1,7 +1,22 @@
-from machine import Timer, Pin, PWM
+###
+# If we are running on micro python, we should be able in import the machine classes
+try:
+    from machine import Pin, PWM
+
+except ImportError:
+    # That failed.... We are not running on a pico so include some dummy classes so we can debug on other platforms
+    print("No micropython support found. ")
+    from dummy_machine import Pin, PWM
+
+
 import time
 
+# If true, output debug messages
 verbose = True
+
+# Set some global scale factor for motor speed to pwm frequency
+MOTOR_SPEED = 5000
+
 def debug(str):
     if verbose:
         print(str)
@@ -74,18 +89,18 @@ class Stepper:
             self.dir_pin.low()
             
         if abs(self.speed) < self.MIN_SPEED:
-            debug("{self.name} Below minimum speed - stop")
+            debug(f"{self.name} Below minimum speed - stop")
             self.dir = 0
             self.pwm.deinit()
             self.speed = 0
         else :
             if needs_start:
-                Debug("Start")
+                debug("Start")
                 self.pwm = PWM(self.step_pin)
                 self.pwm.duty_u16(1000)
 
             self.pwm.freq(abs(self.speed))
-        debug(f"{self.name} Speed {speed} dir {self.dir}")
+        debug(f"{self.name} Speed:{self.speed} dir:{self.dir}")
             
     def request_speed(self, speed_in):
         self.set_speed(max([self.speed - self.MAX_ACCEL, min([self.speed + self.MAX_ACCEL , speed_in])]))     
@@ -93,25 +108,63 @@ class Stepper:
     def get_speed(self):
         return self.speed
     
-
+def calc_motor_speeds(velocities) :
+    setup = {
+        "FORE": [
+             1, -1,
+             1, -1
+        ],
+        "LEFT": [
+             1,  1,
+            -1, -1
+        ],
+        "CLOCK": [
+             1, -1,
+             1, -1
+        ]
+    }
+    # Speed of each of the 4 motors is the sum of the velocity in that direction * it's motor direction
+    # returns a list of 4 motor speeds
+    return [MOTOR_SPEED * sum(setup[dir][i] * velocities[dir] for dir in velocities.keys() ) for i in range (4)]
 
 def main():
     
     Stepper.set_enable_pin(14)
     
-    motor1 = Stepper(17,16)
-    motor2 = Stepper(19,18)
+    motors = [Stepper(17,16, name="FL"),
+              Stepper(19,18, name="FR"),
+              Stepper(17,16, name="BL"),
+              Stepper(19,18, name="BR")]
 
-    motor1.name = "one"
-    motor2.name = "two"
+    # TODO No idea if these motor directions are correct?
+    setup = {
+        "FORE": [
+             1, -1,
+             1, -1
+        ],
+        "LEFT": [
+             1,  1,
+            -1, -1
+        ],
+        "CLOCK": [
+             1, -1,
+             1, -1
+        ]
+    }
 
     Stepper.enable()
 
+    # How fast do we go in each of 3 directions
+    velocities= {"FORE": 1, "LEFT": 2, "CLOCK": 0}
+
+    # Convert those to 4 motor speeds
+    speeds = calc_motor_speeds(velocities)
+    print(f"{velocities} -> {speeds}")
     for j in range (5):
         for i in range (10):
             print(f"Loop {i}")
-            motor1.request_speed(5000*i)
-            motor2.request_speed(-5000)
+            for i in range(4):
+                motors[i].request_speed(speeds[i])
             time.sleep(1)
         Stepper.stop_all()
     
@@ -128,7 +181,6 @@ def main():
 
 if __name__ == "__main__":
 
-        
     #tim = Timer(-1,period=timer_period, callback=issr)
 
     main()
