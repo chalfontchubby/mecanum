@@ -119,8 +119,8 @@ def calc_motor_speeds(velocities) :
             -1, -1
         ],
         "CLOCK": [
-             1, -1,
-             1, -1
+             1,  1,
+             1,  1
         ]
     }
     # Speed of each of the 4 motors is the sum of the velocity in that direction * it's motor direction
@@ -133,24 +133,9 @@ def main():
     
     motors = [Stepper(17,16, name="FL"),
               Stepper(19,18, name="FR"),
-              Stepper(17,16, name="BL"),
-              Stepper(19,18, name="BR")]
+              Stepper(21,20, name="BL"),
+              Stepper(23,22, name="BR")]
 
-    # TODO No idea if these motor directions are correct?
-    setup = {
-        "FORE": [
-             1, -1,
-             1, -1
-        ],
-        "LEFT": [
-             1,  1,
-            -1, -1
-        ],
-        "CLOCK": [
-             1, -1,
-             1, -1
-        ]
-    }
 
     Stepper.enable()
 
