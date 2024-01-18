@@ -15,7 +15,10 @@ import time
 verbose = True
 
 # Set some global scale factor for motor speed to pwm frequency
-MOTOR_SPEED = 5000
+MOTOR_SPEED = 500
+# Duty cycle is 16 bit, so this should give 50% duty cycle
+# A4988 requires 1us pulse width. At 10kHz, 50% gives 0.5 / 10e4 = 50us
+DUTY = 1<<15
 
 def debug(str):
     if verbose:
@@ -32,7 +35,7 @@ class Stepper:
     def __init__(self, dir_pin, step_pin, name=None):
         self.step_pin = Pin(step_pin, Pin.OUT)
         self.pwm = PWM(self.step_pin)
-        self.pwm.duty_u16(1000)
+        self.pwm.duty_u16(DUTY)
         self.pwm.deinit()
         
         self.dir_pin = Pin(dir_pin, Pin.OUT)
@@ -96,8 +99,9 @@ class Stepper:
         else :
             if needs_start:
                 debug("Start")
+                # Prob should just init here?
                 self.pwm = PWM(self.step_pin)
-                self.pwm.duty_u16(1000)
+                self.pwm.duty_u16(DUTY)
 
             self.pwm.freq(abs(self.speed))
         debug(f"{self.name} Speed:{self.speed} dir:{self.dir}")
@@ -159,13 +163,5 @@ def main():
     #print(f"Stepped {motor1.steps}")
     Stepper.kill()
 
-#def issr(t):
-#    global motor1, motor2
-#    motor1.do_step()
- #   motor2.do_step()
-
 if __name__ == "__main__":
-
-    #tim = Timer(-1,period=timer_period, callback=issr)
-
     main()
