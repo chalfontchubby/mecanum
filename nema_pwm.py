@@ -11,7 +11,8 @@ except ImportError:
 
 import time
 
-# If true, output debug messages
+DUTY = 16386
+
 verbose = True
 
 # Set some global scale factor for motor speed to pwm frequency
@@ -37,7 +38,7 @@ class Stepper:
         self.pwm = PWM(self.step_pin)
         self.pwm.duty_u16(DUTY)
         self.pwm.deinit()
-        
+        print(f"Dir dpin {dir_pin}")
         self.dir_pin = Pin(dir_pin, Pin.OUT)
         self.dir = 0
         self.count = 0
@@ -45,8 +46,8 @@ class Stepper:
         Stepper.instances.append(self)
         self.MIN_SPEED = 25   
         
-        self.MAX_ACCEL = 5000   
-        self.MAX_SPEED = 5000  
+        self.MAX_ACCEL = 50   
+        self.MAX_SPEED = 50  
         self.steps = 0
         self.name=name if name else ""
         self.step_pin.low()
@@ -65,13 +66,13 @@ class Stepper:
     # Enable all the motors
     def enable(cls):
         debug(f"Enable")
-        cls.enable_pin.high()
+        cls.enable_pin.low()
         
     @classmethod
     # Disable all the motors
     def kill(cls):
         debug(f"Disable")
-        cls.enable_pin.low()
+        cls.enable_pin.high()
 
     @classmethod
     def stop_all(cls):
@@ -87,10 +88,12 @@ class Stepper:
         if self.speed> self.MIN_SPEED:
             self.dir = 1
             self.dir_pin.high()
+            print("dir high")
         elif self.speed < -self.MIN_SPEED:
             self.dir = -1
             self.dir_pin.low()
-            
+            print("Dir low")
+                  
         if abs(self.speed) < self.MIN_SPEED:
             debug(f"{self.name} Below minimum speed - stop")
             self.dir = 0
@@ -99,7 +102,6 @@ class Stepper:
         else :
             if needs_start:
                 debug("Start")
-                # Prob should just init here?
                 self.pwm = PWM(self.step_pin)
                 self.pwm.duty_u16(DUTY)
 
@@ -134,7 +136,7 @@ def calc_motor_speeds(velocities) :
 def main():
     
     Stepper.set_enable_pin(14)
-    
+
     motors = [Stepper(17,16, name="FL"),
               Stepper(19,18, name="FR"),
               Stepper(21,20, name="BL"),
@@ -156,6 +158,7 @@ def main():
                 motors[i].request_speed(speeds[i])
             time.sleep(1)
         Stepper.stop_all()
+
     
         
     time.sleep(5)
