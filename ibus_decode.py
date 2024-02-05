@@ -30,7 +30,7 @@ class ibus_interface:
             # (0x20, 0x40) " @"
             # 14*16 bitvalues, little endian
             # 16 bit checksum equal to 0xffff minus all bytes except the checksum
-            values = [0] * 14
+
             # Get a view of the memory as 8 bit values we can process more easily for the checksum
             byte_data = memoryview(self._buffer)
             
@@ -40,7 +40,8 @@ class ibus_interface:
             # Now we have the rest of the bytes, 32 of them less the 0x20 at the start, and the 2 bytes of checksum
             for i in range(28):
                 my_cksum -= byte_data[i]
-    
+
+            values = [0] * 14
             *values, cksum = struct.unpack("<HHHHHHHHHHHHHHH", self._buffer)
             if cksum == my_cksum:
                 return values
