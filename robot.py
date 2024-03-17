@@ -71,11 +71,13 @@ class Robot:
         self._ibus = ibus.Ibus(self._uart, self._set_in_control)
         self._sensors = Sensors()
         
-        self._pid_thread = threading.Thread(target=self._pid_daemon, daemon=True)
         self._servos = ServoKit(channels=16)
-        
+        self._control_callback = None
         self.reset_state()
-
+        self._pid_period = 0.05
+        self._pid_thread = threading.Thread(target=self._pid_daemon, daemon=True)
+        self._pid_thread.start()
+        
     def reset_state(self):
         self._target_state = {
             "speed": None,
@@ -100,20 +102,41 @@ class Robot:
         return self._sensors.get_heading()
 
     def turn_to_heading(self, new_heading):
-        self._target_heading = new_heading
-        
+        self._target_state["heading"] = new_heading
+    
+    def set_control_callback(self, callback):
+        self._control_callback = callback
+    
     def _set_in_control(self, in_control):
         self._in_control = in_control
         if in_control:
             # Clear any targets when we take over
             self.reset_state()
         print(f"{in_control=}")
+        if self._control_callback is not None:
+            self._control_callback(in_control)
+
+    def get_in_control(self):
+        return self._in_control
 
     def _pid_daemon(self):
+        while True:
+            print("pid daemon")
+            # Initially only turn control
+            if self._target_state["heading"] is not None:
+                heading_error = self._target_state["heading"] - self.get_heading()
+                print(f"{heading_error=}")
         pass
     
 if __name__ == "__main__":
     robot = Robot()
+    def control_callback(in_control):
+        if in_control:
+            robot.turn_to_heading(0)
+            print("Taking Over")
+    
+    robot.set_control_callback(control_callback)
+    
     while True:
         print(f"Heading = {robot.get_heading()}")
         time.sleep(1)
