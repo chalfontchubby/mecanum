@@ -1,51 +1,32 @@
-from ibus_encode import ibus_encode
-import serial
-import struct
+
+from robot import Robot
 import time
 
-uart = serial.Serial("/dev/ttyS0", baudrate=115200, timeout=3.0)
-ibus = ibus_encode(uart)
+if __name__ == "__main__":
 
-# List a set of "commands" to send one by one
-script = [
-    {"speed":0.05,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.10,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.15,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.20,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.15,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.10,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.05,     "turn": 0.0,     "strafe": 0.0,   "duration": 1},
-    {"speed":0.0,      "turn": 0.0,     "strafe": 0.0,   "duration": 1},]
+    # Create a robot object - optional callback function which will be called
+    # when control is handed over to the application from the remote
+    # robot = Robot(callback = take_control)
 
-# Turn on the motors
-ibus.enable()
-    
-for command in script:
-    print(f"{command=}")
-    # Send the command to the robot.
-    # Replace this with real controls
-    ibus.move(command["speed"], command["turn"], command["strafe"])
-    time.sleep(command["duration"])
+    robot = Robot()
 
+    # Set up any gpio pins you need - TX, RX and the I2C pins are already in use.
 
-# More commands with bigger changes in speeds. These would be a problem
-# for the robot to suddenly change to, so we use the acceleration method
-# to steadily change the speed over a period of time
-script = [
-    {"speed":0.25,     "turn": 0.0,     "strafe": 0.0,   "duration": 2},
-    {"speed":0.00,     "turn": 0.25,     "strafe": 0.0,   "duration": 2},
-    {"speed":0.0,     "turn": 0.0,     "strafe": 0.25,   "duration": 2},
-    {"speed":1.0,     "turn": 0.0,     "strafe": 0.0,   "duration": 5},
-    {"speed":0.5,     "turn": -0.5,     "strafe": 0.0,   "duration": 5},
-    ]
+    print("Start main loop")
+    print(f"Robot heading is {robot.get_heading()}")
+    while True:
+        if robot.get_in_control():
+            # You can read the valuse from the remote control
+            values = robot.get_ibus_values()
+            print(f"Main application - in control {values['knob1']}")
+            robot._ibus.enable()
 
-# Repeat the commands, but using the acceleration method to smooth things out 
-for command in script:
-    print(f"{command=}")
-    # Send the command to the robot.
-    # Replace this with real controls
-    ibus.accel(command["speed"], command["turn"], command["strafe"], command["duration"])
-    # Each call to accel takes some time - so we don't sleep here
-    
-# Turn off the motors    
-ibus.disable()
+            # Set the speed of the robot as needed - here we use the remote control
+            # values to set ....
+            # (Speed, turn, strafe)
+            # Values are all in the range -500 to 500
+            robot.set_motion( values['knob1'] - 1500,0,values['knob2'] - 1500)
+
+            # Note - it is important to change speeds slowly - otherwise the stepper motors
+            # can't cope.
+        time.sleep(0.1)

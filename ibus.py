@@ -8,7 +8,7 @@ SPEED_CHAN = 1
 TURN_CHAN = 0
 STRAFE_CHAN = 3
 ENABLE_CHAN = 6
-RUN_APP_CHAN = 7
+PASSTHROUGH_CHAN = 7
 KNOB_1 = 4
 KNOB_2 = 5
 
@@ -32,11 +32,14 @@ class Ibus:
         self._local_values = [1500] * 14
         self._input_values = [1500] * 14
         self.disable()
+        self.write(self._local_values)
         self._ibus_thread = threading.Thread(target=self.run, daemon=True)
         self._ibus_thread.start();
         self._host_running = False
         self._callback = callback
-        
+        # Don't pass control to app until we have seen in_control false;
+        # Prevents unexpected robot startup
+        self._safe_startup = False  
         
     def read(self):
         byte = 0
@@ -68,7 +71,7 @@ class Ibus:
             byte_data = memoryview(self._in_buffer)
             
             # Checksum is 0xffff minus every byte except the checksum itself.
-            # We stripped the 0x20, 0x40 off the front before we got here, so we start counting doen from 0xffff - 0x20 - 40
+            # We stripped the 0x20, 0x40 off the front before we got here, so we start counting down from 0xffff - 0x20 - 40
             my_cksum = 0xffff - 0x20 - 0x40
             # Now we have the rest of the bytes, 32 of them less the 0x20 at the start, and the 2 bytes of checksum
             for i in range(28):
@@ -80,12 +83,14 @@ class Ibus:
             # 0x20, 0x40 can't appear bit packet. Neither checksum nor data can begin with 0x20 or 0x40
 
     def get_passthrough(self):
-        return self._input_values[ENABLE_CHAN] < 1500
+        return self._input_values[PASSTHROUGH_CHAN] < 1500
 
     def passthrough(self):
-        ##self._uart.write(b'\x20\x40')
-        ##self._uart.write(self._in_buffer)
-        pass
+        self._uart.write(b'\x20\x40')
+        self._uart.write(self._in_buffer)
+
+    def get_input_values(self):
+        return self._input_values
 
     def run(self):
         self._uart.reset_input_buffer()
@@ -93,8 +98,8 @@ class Ibus:
         last_time = time.time()
         while True:
             pre_read_time = time.time()
-            if self.get_passthrough() > 100:
-                # There are a few packetsinthe input fifo - better jump 
+            if self._uart.in_waiting > 100:
+                # There are a few packets in the input fifo - better jump 
                 print("Uart catchup")
                 self._uart.reset_input_buffer()
 
@@ -105,12 +110,15 @@ class Ibus:
             #print(f"{loops} {self.get_passthrough()} {self._host_running}")
             loops += 1
             if self.get_passthrough():
-                self.passthrough()
+                # We have now seen the passthrough switch low - so can pass control to the app if needed
+                self._safe_startup = True
                 if self._host_running:
                     self._host_running = False
                     self._callback(self._host_running)
+                self.passthrough()
+                
             else:
-                if not self._host_running:
+                if not self._host_running and self._safe_startup:
                     self._host_running = True
                     self._callback(self._host_running)
                 self.write(self._local_values)
@@ -151,6 +159,8 @@ class Ibus:
         self._local_values[SPEED_CHAN] = speed + ZERO_OFFSET
         self._local_values[TURN_CHAN] = turn +ZERO_OFFSET
         self._local_values[STRAFE_CHAN] = strafe +ZERO_OFFSET
+        print(f"set motion {turn=}  {self._local_values}")
+        
 
 def callback(in_control):
     print(f"{in_control=}")

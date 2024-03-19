@@ -9,6 +9,9 @@ sudo -E env PATH=$PATH python3 raspi-blinka.py
 # Install servo support
 sudo pip3 install adafruit-circuitpython-servokit
 
-#sudo apt install python3-smbus
-# pip install mpu6050-raspberrypi
+
+
+
+sudo apt install python3-smbus
+sudo pip install mpu6050-raspberrypi
 # 
