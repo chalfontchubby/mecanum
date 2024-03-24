@@ -1,3 +1,5 @@
+# Support for running code on shutdown - put the robot into a safe state
+import atexit
 import ibus
 import serial
 import time
@@ -16,7 +18,6 @@ try:
 except:
     HAS_MPU6050 = False
     print("No mpu available. Please see pi_setup/readme.txt for setup if gro support is required")
-
 
 
 import ctypes
@@ -93,6 +94,7 @@ class Sensors:
 
 class Robot:
     def __init__(self, callback = None):
+        atexit.register(self.atexit)
         self._callback_thread = None  
         self._control_callback = callback
         self._uart = serial.Serial("/dev/ttyS0", baudrate=115200, timeout=3.0)
@@ -109,6 +111,10 @@ class Robot:
         self._pid_period = 0.05
         self._pid_thread = threading.Thread(target=self._pid_daemon, daemon=True)
         self._pid_thread.start()
+    
+    def atexit(self):
+        print("Shut down the robot")
+        self._ibus.atexit()
         
 
     def reset_state(self):

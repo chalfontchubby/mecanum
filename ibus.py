@@ -39,7 +39,15 @@ class Ibus:
         self._callback = callback
         # Don't pass control to app until we have seen in_control false;
         # Prevents unexpected robot startup
-        self._safe_startup = False  
+        self._safe_startup = False
+        # Allow 
+        self._disable_passthrough = False
+        
+    def atexit(self):
+        shutdown_values = [1500] * 14
+        shutdown_values[ENABLE_CHAN] = ENABLE_OFF
+        self.write(shutdown_values)
+        print("Sent shutdown values")
         
     def read(self):
         byte = 0
@@ -157,10 +165,8 @@ class Ibus:
     # Values are in the range +/- 500
     def set_motion(self, speed, turn, strafe):
         self._local_values[SPEED_CHAN] = speed + ZERO_OFFSET
-        self._local_values[TURN_CHAN] = turn +ZERO_OFFSET
-        self._local_values[STRAFE_CHAN] = strafe +ZERO_OFFSET
-        print(f"set motion {turn=}  {self._local_values}")
-        
+        self._local_values[TURN_CHAN] = turn + ZERO_OFFSET
+        self._local_values[STRAFE_CHAN] = strafe + ZERO_OFFSET 
 
 def callback(in_control):
     print(f"{in_control=}")
