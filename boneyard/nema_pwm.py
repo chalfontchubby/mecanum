@@ -11,12 +11,13 @@ except ImportError:
 
 import time
 
-DUTY = 16386
+# Duty is parts per 1<<16
+DUTY = 1<<15
 
 verbose = True
 
 # Set some global scale factor for motor speed to pwm frequency
-MOTOR_SPEED = 500
+MOTOR_SPEED = 64000
 # Duty cycle is 16 bit, so this should give 50% duty cycle
 # A4988 requires 1us pulse width. At 10kHz, 50% gives 0.5 / 10e4 = 50us
 DUTY = 1<<15
@@ -31,8 +32,9 @@ class Stepper:
     Handles  A4988 hardware driver for bipolar stepper motors
     """
     enable_pin = None
+    step_size_pins = [None] * 3
     instances = []
-    
+        
     def __init__(self, dir_pin, step_pin, name=None):
         self.step_pin = Pin(step_pin, Pin.OUT)
         self.pwm = PWM(self.step_pin)
@@ -46,8 +48,7 @@ class Stepper:
         Stepper.instances.append(self)
         self.MIN_SPEED = 25   
         
-        self.MAX_ACCEL = 50   
-        self.MAX_SPEED = 50  
+        self.MAX_ACCEL = 500   
         self.steps = 0
         self.name=name if name else ""
         self.step_pin.low()
@@ -61,12 +62,18 @@ class Stepper:
     def set_enable_pin(cls, pin):
         debug(f"Set enable pin to {pin}")
         cls.enable_pin = Pin(pin, Pin.OUT)
+        
+    @classmethod
+    def set_step_size_pins(cls, pin0, pin1, pin2):
+        debug(f"Set step size pins to {pin0}:{pin1}:{pin2}")
+        cls.step_size_pins = [Pin(pin0, Pin.OUT), Pin(pin1, Pin.OUT), Pin(pin2, Pin.OUT)]
      
     @classmethod
     # Enable all the motors
     def enable(cls):
         debug(f"Enable")
         cls.enable_pin.low()
+
         
     @classmethod
     # Disable all the motors
@@ -79,7 +86,18 @@ class Stepper:
         debug(f"Stop all")
         for stepper in cls.instances:
             stepper.set_speed(0)
-        
+    
+    # 0 = full_step
+	# 1 = 1/2 step
+    # 2 = 1/4 step
+    # etc
+    @classmethod
+    def set_step_size(cls, step_size):
+        assert step_size >= 0 and step_size <= 7
+        for bit in range(3):
+            cls.step_size_pins[bit].value(1 & (step_size >> bit))
+    
+
     def set_speed(self, speed_in):
         needs_start = self.speed == 0
         self.speed = speed_in
@@ -135,29 +153,29 @@ def calc_motor_speeds(velocities) :
 
 def main():
     
-    Stepper.set_enable_pin(14)
+    Stepper.set_enable_pin(6)
+    Stepper.set_step_size_pins(7, 8, 9)
 
-    motors = [Stepper(17,16, name="FL"),
-              Stepper(19,18, name="FR"),
-              Stepper(21,20, name="BL"),
-              Stepper(23,22, name="BR")]
+    motors = [Stepper(11,10, name="FL"),
+              Stepper(17,16, name="FR"),
+              Stepper(20,21, name="BL"),
+              Stepper(18,29, name="BR")]
 
 
     Stepper.enable()
+    Stepper.set_step_size(5)
 
     # How fast do we go in each of 3 directions
-    velocities= {"FORE": 1, "LEFT": 2, "CLOCK": 0}
+    velocities= {"FORE": 1, "LEFT": 0, "CLOCK": 0}
 
     # Convert those to 4 motor speeds
     speeds = calc_motor_speeds(velocities)
     print(f"{velocities} -> {speeds}")
-    for j in range (5):
-        for i in range (10):
-            print(f"Loop {i}")
-            for i in range(4):
-                motors[i].request_speed(speeds[i])
-            time.sleep(1)
-        Stepper.stop_all()
+    for j in range(500):
+        for i in range(4):
+            motors[i].request_speed(speeds[i])
+        time.sleep(0.1)
+    Stepper.stop_all()
 
     
         
