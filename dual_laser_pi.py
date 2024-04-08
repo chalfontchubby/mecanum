@@ -15,7 +15,6 @@ class I2Cmux:
         self._address = address
         
     def switch(self, channels):
-        #self._i2c.writeto(0x70, b'\xff')
         self._smbus.write_byte_data(self._address, 0, channels)
   
 i2c = SMBus(1)  # Create a new I2C bus
@@ -37,6 +36,7 @@ extra = spacing / math.sin(alpha/2) / 2
 
 while True:
     dists = [0,0]
+    # Select both lasers to write the start
     mux.switch(3)
     i2c.write_byte_data(laser_addr, 0x10, laser_start)
         
@@ -57,6 +57,7 @@ while True:
     else:
         gamma = math.asin(math.sin(alpha) * c / a)
         beta = math.pi - (alpha + gamma)
+    #print(f"{dists[0]=} {dists[1]=} {a=} {b=} {c=}")
     print(f"{a=} {math.degrees(beta)=} {math.degrees(gamma)=} {85 - math.degrees(gamma)=}")
     diff = (dists[1] - dists[0]) / 2
     diff = max(-32,min(32,diff))
